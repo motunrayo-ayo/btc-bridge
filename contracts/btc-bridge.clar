@@ -83,6 +83,9 @@
     (btc-sender (buff 33))
 )
     (begin
+        ;; Add explicit tx-hash validation
+        (asserts! (validate-tx-hash-input tx-hash) (err ERR-INVALID-TX-HASH))
+        
         (asserts! (get-validator-status tx-sender) (err ERR-NOT-AUTHORIZED))
         (asserts! (validate-deposit amount recipient btc-sender tx-hash) (err ERR-INVALID-BRIDGE-STATUS))
         
@@ -93,7 +96,7 @@
                 recipient: recipient,
                 processed: false,
                 confirmations: u0,
-                timestamp: block-height,
+                timestamp: stacks-block-height,
                 btc-sender: btc-sender
             }
         )
@@ -108,6 +111,9 @@
     (let (
         (deposit (unwrap! (map-get? deposits {tx-hash: tx-hash}) (err ERR-INVALID-BRIDGE-STATUS)))
     )
+        ;; Add explicit tx-hash validation
+        (asserts! (validate-tx-hash-input tx-hash) (err ERR-INVALID-TX-HASH))
+        
         (asserts! (not (var-get bridge-paused)) (err ERR-BRIDGE-PAUSED))
         (asserts! (is-valid-signature signature) (err ERR-INVALID-SIGNATURE-FORMAT))
         (asserts! (not (get processed deposit)) (err ERR-ALREADY-PROCESSED))
@@ -121,7 +127,7 @@
             {tx-hash: tx-hash, validator: tx-sender}
             {
                 signature: signature,
-                timestamp: block-height
+                timestamp: stacks-block-height
             }
         )
         
@@ -163,7 +169,7 @@
             sender: tx-sender,
             amount: amount,
             btc-recipient: btc-recipient,
-            timestamp: block-height
+            timestamp: stacks-block-height
         })
         
         (var-set total-bridged (- (var-get total-bridged) amount))
@@ -248,5 +254,12 @@
     (and
         (is-eq (len signature) u65)
         (not (is-eq signature 0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000))
+    )
+)
+
+(define-read-only (validate-tx-hash-input (tx-hash (buff 32)))
+    (and
+        (is-eq (len tx-hash) u32)
+        (not (is-eq tx-hash 0x0000000000000000000000000000000000000000000000000000000000000000))
     )
 )
