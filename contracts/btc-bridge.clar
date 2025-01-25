@@ -229,3 +229,24 @@
         (not (is-eq address (as-contract tx-sender)))
     )
 )
+
+(define-read-only (is-valid-btc-address (btc-addr (buff 33)))
+    (and
+        (is-eq (len btc-addr) u33)
+        (not (is-eq btc-addr 0x000000000000000000000000000000000000000000000000000000000000000000))
+    )
+)
+
+(define-read-only (is-valid-tx-hash (tx-hash (buff 32)))
+    (and
+        (is-eq (len tx-hash) u32)
+        (not (is-eq tx-hash 0x0000000000000000000000000000000000000000000000000000000000000000))
+    )
+)
+
+(define-read-only (is-valid-signature (signature (buff 65)))
+    (and
+        (is-eq (len signature) u65)
+        (not (is-eq signature 0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000))
+    )
+)
