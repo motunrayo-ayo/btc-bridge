@@ -140,3 +140,50 @@
         (ok true)
     )
 )
+
+(define-public (withdraw 
+    (amount uint)
+    (btc-recipient (buff 34))
+)
+    (let (
+        (current-balance (get-bridge-balance tx-sender))
+    )
+        (asserts! (not (var-get bridge-paused)) (err ERR-BRIDGE-PAUSED))
+        (asserts! (>= current-balance amount) (err ERR-INSUFFICIENT-BALANCE))
+        (asserts! (>= amount MIN-DEPOSIT) (err ERR-INVALID-AMOUNT))
+        (asserts! (<= amount MAX-DEPOSIT) (err ERR-INVALID-AMOUNT))
+        
+        (map-set bridge-balances
+            tx-sender
+            (- current-balance amount)
+        )
+        
+        (print {
+            type: "withdraw",
+            sender: tx-sender,
+            amount: amount,
+            btc-recipient: btc-recipient,
+            timestamp: block-height
+        })
+        
+        (var-set total-bridged (- (var-get total-bridged) amount))
+        (ok true)
+    )
+)
+
+(define-public (emergency-withdraw (amount uint) (recipient principal))
+    (begin
+        (asserts! (is-deployer) (err ERR-NOT-AUTHORIZED))
+        (asserts! (>= (var-get total-bridged) amount) (err ERR-INSUFFICIENT-BALANCE))
+        (asserts! (is-valid-principal recipient) (err ERR-INVALID-RECIPIENT))
+        
+        (let (
+            (current-balance (default-to u0 (map-get? bridge-balances recipient)))
+            (new-balance (+ current-balance amount))
+        )
+            (asserts! (> new-balance current-balance) (err ERR-INVALID-AMOUNT))
+            (map-set bridge-balances recipient new-balance)
+            (ok true)
+        )
+    )
+)
