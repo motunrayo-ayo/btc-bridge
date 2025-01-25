@@ -31,3 +31,47 @@
 (define-constant MIN-DEPOSIT u100000)
 (define-constant MAX-DEPOSIT u1000000000)
 (define-constant REQUIRED-CONFIRMATIONS u6)
+
+;; data vars - protocol state
+(define-data-var bridge-paused bool false)
+(define-data-var total-bridged uint u0)
+(define-data-var last-processed-height uint u0)
+
+;; data maps - protocol storage
+(define-map deposits 
+    { tx-hash: (buff 32) }
+    {
+        amount: uint,
+        recipient: principal,
+        processed: bool,
+        confirmations: uint,
+        timestamp: uint,
+        btc-sender: (buff 33)
+    }
+)
+
+(define-map validators principal bool)
+(define-map validator-signatures
+    { tx-hash: (buff 32), validator: principal }
+    { signature: (buff 65), timestamp: uint }
+)
+
+(define-map bridge-balances principal uint)
+
+;; public functions - bridge operations
+(define-public (toggle-bridge-status)
+    (begin
+        (asserts! (is-deployer) (err ERR-NOT-AUTHORIZED))
+        (var-set bridge-paused (not (var-get bridge-paused)))
+        (ok true)
+    )
+)
+
+(define-public (manage-validator (validator principal) (add bool))
+    (begin
+        (asserts! (is-deployer) (err ERR-NOT-AUTHORIZED))
+        (asserts! (is-valid-principal validator) (err ERR-INVALID-VALIDATOR))
+        (map-set validators validator add)
+        (ok true)
+    )
+)
