@@ -187,3 +187,45 @@
         )
     )
 )
+
+;; read-only functions - queries
+(define-read-only (get-deposit (tx-hash (buff 32)))
+    (map-get? deposits {tx-hash: tx-hash})
+)
+
+(define-read-only (get-bridge-status)
+    (var-get bridge-paused)
+)
+
+(define-read-only (get-validator-status (validator principal))
+    (default-to false (map-get? validators validator))
+)
+
+(define-read-only (get-bridge-balance (user principal))
+    (default-to u0 (map-get? bridge-balances user))
+)
+
+(define-read-only (is-deployer)
+    (is-eq tx-sender CONTRACT-DEPLOYER)
+)
+
+;; private functions - validation helpers
+(define-read-only (validate-deposit (amount uint) (recipient principal) (btc-sender (buff 33)) (tx-hash (buff 32)))
+    (and
+        (not (var-get bridge-paused))
+        (>= amount MIN-DEPOSIT)
+        (<= amount MAX-DEPOSIT)
+        (is-valid-principal recipient)
+        (is-valid-btc-address btc-sender)
+        (is-valid-tx-hash tx-hash)
+        (is-none (map-get? deposits {tx-hash: tx-hash}))
+    )
+)
+
+(define-read-only (is-valid-principal (address principal))
+    (and 
+        (is-ok (principal-destruct? address))
+        (not (is-eq address CONTRACT-DEPLOYER))
+        (not (is-eq address (as-contract tx-sender)))
+    )
+)
