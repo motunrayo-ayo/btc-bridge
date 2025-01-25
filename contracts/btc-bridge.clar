@@ -75,3 +75,68 @@
         (ok true)
     )
 )
+
+(define-public (initiate-deposit 
+    (tx-hash (buff 32)) 
+    (amount uint) 
+    (recipient principal)
+    (btc-sender (buff 33))
+)
+    (begin
+        (asserts! (get-validator-status tx-sender) (err ERR-NOT-AUTHORIZED))
+        (asserts! (validate-deposit amount recipient btc-sender tx-hash) (err ERR-INVALID-BRIDGE-STATUS))
+        
+        (map-set deposits
+            {tx-hash: tx-hash}
+            {
+                amount: amount,
+                recipient: recipient,
+                processed: false,
+                confirmations: u0,
+                timestamp: block-height,
+                btc-sender: btc-sender
+            }
+        )
+        (ok true)
+    )
+)
+
+(define-public (confirm-deposit 
+    (tx-hash (buff 32))
+    (signature (buff 65))
+)
+    (let (
+        (deposit (unwrap! (map-get? deposits {tx-hash: tx-hash}) (err ERR-INVALID-BRIDGE-STATUS)))
+    )
+        (asserts! (not (var-get bridge-paused)) (err ERR-BRIDGE-PAUSED))
+        (asserts! (is-valid-signature signature) (err ERR-INVALID-SIGNATURE-FORMAT))
+        (asserts! (not (get processed deposit)) (err ERR-ALREADY-PROCESSED))
+        (asserts! (>= (get confirmations deposit) REQUIRED-CONFIRMATIONS) (err ERR-INVALID-BRIDGE-STATUS))
+        (asserts! 
+            (is-none (map-get? validator-signatures {tx-hash: tx-hash, validator: tx-sender}))
+            (err ERR-ALREADY-PROCESSED)
+        )
+        
+        (map-set validator-signatures
+            {tx-hash: tx-hash, validator: tx-sender}
+            {
+                signature: signature,
+                timestamp: block-height
+            }
+        )
+        
+        (map-set deposits
+            {tx-hash: tx-hash}
+            (merge deposit {processed: true})
+        )
+        
+        (map-set bridge-balances
+            (get recipient deposit)
+            (+ (default-to u0 (map-get? bridge-balances (get recipient deposit))) 
+               (get amount deposit))
+        )
+        
+        (var-set total-bridged (+ (var-get total-bridged) (get amount deposit)))
+        (ok true)
+    )
+)
